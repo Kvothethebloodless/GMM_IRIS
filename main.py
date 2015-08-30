@@ -64,21 +64,28 @@ def inference_GMM(traindata,n_classes,n_features,n_datapoints):
     return
 
 
-def new_sigma(n_k,mu_k_new,respk_n,x_n):
+def gen_mu_vector_maxstep(x,n_m,respm,n_dims,n_datapoints):
     #x_n matrix of datapoints
-    #respk_n matrix of responsibilities of each of K GMs of all datapoints
-    return;
+    #respkm_n vector of responsibilities of each of n points for m the gaussian of all datapoints
+
+    mu_vector = np.arange(n_dims);
+    for i in range(n_dims):
+        mu_vector[i]=np.sum(np.multiply(respm,x[:,i]));
+
+    mu_vector = mu_vector/n_m;
+    return mu_vector
 
 
-def gen_var_matrix(x,mu,respm,n_dims,n_datapoints): #m-dimensional data - x - n by d. mu 1 by d . Assuming dimensional independence
+def gen_var_matrix_maxstep(x,mu,n_m,respm,n_dims,n_datapoints): #m-dimensional data - x - n by d. mu 1 by d . Assuming dimensional independence
     
     var_dim = np.arange(n_dims) #Vector to hold all the important self variances i.e cov(i,j)
     for j in range(n_dims):
         var_dim[j] = np.sum(np.multiply(respm,np.power((x[:,j]-mu[j]),2)));
-    var_matrix = np.diag(np.diag(var_dim));
-    
+    var_matrix = np.diag(var_dim);
+    var_matrix = var_matrix/n_m;
     return var_matrix
-             
+
+  
     
 
 def new_pi(n_k,n):
