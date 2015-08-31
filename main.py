@@ -72,30 +72,30 @@ def GMM_prob_class(x,params_class,w,n_gms): #prob = sum(wi*N(mu,sigma))
     return sum
 
         
-def gen_respnm_expstep(traindata,mu_vector,var_matrix,w,n_dims,n_datapoints,n_features,n_m):
+def gen_respnm_expstep(classdata,mu_vector,var_matrix,w,n_dims,n_datapoints,n_features,n_m):
     respnm = np.zeros((n_datapoints,n_dims))
     for i in range(1:n_datapoints):
-        datapoint = traindata[i][0:4];
+        datapoint = classdata[i][0:4];
         p = GMM_prob_class(datapoint,(mu_vector,var_matrix),w,n_m);
         for j in range(1:n_m):            
             respnm[i,j] = w[j]*norm_pdf_multivariate(datapoint,[mu_vector[j],var_matrix[j]]) / p ;
     return respnm
 
-def gen_mu_vector_maxstep(traindata,n_m,respm,n_dims,n_datapoints):
+def gen_mu_vector_maxstep(classdata,n_m,respm,n_dims,n_datapoints):
     #x_n matrix of datapoints
     #respkm_n vector of responsibilities of each of n points for m the gaussian of all datapoints
 
     mu_vector = np.arange(n_dims);
     for i in range(n_dims):
-        mu_vector[i]=np.sum(np.multiply(respm,traindata[:,i]));
+        mu_vector[i]=np.sum(np.multiply(respm,classdata[:,i]));
 
     mu_vector = mu_vector/n_m;
     return mu_vector
 
-def gen_var_matrix_maxstep(traindata,mu,n_m,respm,n_dims,n_datapoints): #m-dimensional data - x - n by d. mu 1 by d . Assuming dimensional independence
+def gen_var_matrix_maxstep(classdata,mu,n_m,respm,n_dims,n_datapoints): #m-dimensional data - x - n by d. mu 1 by d . Assuming dimensional independence
     var_dim = np.arange(n_dims) #Vector to hold all the important self variances i.e cov(i,j)
     for j in range(n_dims):
-        var_dim[j] = np.sum(np.multiply(respm,np.power((traindata[:,j]-mu[j]),2)));
+        var_dim[j] = np.sum(np.multiply(respm,np.power((classdata[:,j]-mu[j]),2)));
     var_matrix = np.diag(var_dim);
     var_matrix = var_matrix/n_m;
     return var_matrix
@@ -106,26 +106,76 @@ def gen_N_m(respnm,n_datapoints,n_m):
         N_m[m] = np.sum(respnm[:,m]);
     return N_m
 
-def loglikelihood_error(oldparams,traindata,newparams,n_m,n_datapoints):
-    l1 = log_likelihood(oldparams,traindata,n_m,n_datapoints);
-    l2 = log_likelihood(newparams,traindata,n_m,n_datapoints);
+def loglikelihood_error(oldparams,classdata,newparams,n_m,n_datapoints):
+    l1 = log_likelihood(oldparams,classdata,n_m,n_datapoints);
+    l2 = log_likelihood(newparams,classdata,n_m,n_datapoints);
     error = np.abs(l1-l2);
     return error
 
-def log_likelihood(params,traindata,n_m,n_datapoints):
+def log_likelihood(params,classdata,n_m,n_datapoints):
     ll = 0;
     (mu_vector,var_matrix,w) = params;
     for i in range(n_datapoints):
-        s = s+log(GMM_prob_class(traindata[i],(mu_vector,var_matrix),w,n_m))
+        s = s+log(GMM_prob_class(classdata[i],(mu_vector,var_matrix),w,n_m))
     return s
    
-        
+def gen_mu_vector_matrix_maxstep(dataci,respnm,n_dims,n_m,n_classes):
+    mu_matrix = np.zeros(n_m,n_dim));
+    
+    for j in range(n_m):
+        mu_matrix[j]= gen_mu_vector_maxstep[dataci,n_m,respmn[:,j],n_dims,n_datapoints);
+            
+    return mu_matrix
+
+def gen_var_matrix_matrix_maxstep(dataci,respnm,n_dims,n_m):
+    var_matrix = np.zeros(n_m,n_dim,n_dim));
+    for j in range(n_m):
+        var_matrix[j] = gen_var_matrix_maxstep[dataci,mu_matrix[i,j],n_m,respmn[:,j],n_dims,n_datapoints);
+    return var_matrix
+
+def gen_weight_array(N_m,n_classes):
+    return(N_m/n_classes)
 
 def inference_GMM(traindata,n_classes,n_features,n_datapoints):
     n_m = 8;
     respnm=np.ones((n_datapoints,n_m))
     respnm = respnm*(1/n_m); ##NOT RANDOM
+    bound = 100;
+    N_m = gen_N_m(respnm,n_datapoints,n_m)
+    q = 0;
+    logl2 = 0;
+    all_ci_mu_matrix  = np.zeros((n_classes,n_m,n_dim));
+    all_ci_var_matrix = np.zeros((n_classes,n_m,n_dim,n_dim));
+    all_ci_weight_matrix = np.zeros((n_classes,n_m))
     
+    for i in range(n_classes):
+        data_ci = traindata[np.where((traindata[:,4]==class_labels[i]))];
+        data_ci = data_ci[:,0:4];
+        while(error<bound):
+
+            mu_matrix = gen_mu_vector_matrix_maxstep(data_ci,respnm,n_features,N_m,n_clasess);
+            var_matrix = gen_var_matrix_matrix_maxstep(data_ci,respnm,n_features,N_m,n_classes);
+            w_m = gen_weight_array(N_m,n_classes);
+            logl1 = log_likelihood((mu_matrix,var_matrix,w_m),data_ci,n_m,n_datapoints);
+            error = np.abs(logl2-logl1);
+            respnm = gen_respnm_expstep(data_ci,mu_matrix,var_matrix,w_m,n_features,n_datapoints,n_features,n_m);
+            N_m = gen_N_m(respnm,n_datapoints,n_m)
+            logl2 = logl1;
+        all_ci_mu_matrix(i)=mu_matrix;
+        all_ci_var_matrix(i)=var_matrix;
+        all_ci_weight_matrix=w_m;
+    return (all_ci_mu_matrix,all_ci_var_matrix,all_ci_weight_matrix)
+
+
+
+
+
+
+            
+            
+        
+        
+        
 
 
     
@@ -149,7 +199,7 @@ if __name__ == "__main__":
     priors = inference_prior(traindata);
     
     class_params = inference_likelihood(traindata,all_class_labels,n_classes,n_features);
-    assigned_labels = decision_posterior(priors,class_params,testdata[:,0:4],n_classes,n_datapoints);
+    #assigned_labels = decision_posterior(priors,class_params,testdata[:,0:4],n_classes,n_datapoints);
 
 
-    print(calc_error(assigned_labels,testdata_labels))
+    #print(calc_error(assigned_labels,testdata_labels))
