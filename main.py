@@ -139,14 +139,15 @@ def gen_weight_array(N_m,n_datapoints):
 
 
 def gen_random_respnm(n_datapoints,n_m):
-    respnm = np.empty(n_datapoints,n_m)
+    respnm = np.empty((n_datapoints,n_m))
     for i in range(n_datapoints):
         respnm[i] = np.random.rand(n_m);
-        respnm[i] = respnm/np.sum(respnm[i]);
+        respnm[i] = np.divide(respnm[i],np.sum(respnm[i]));
+    return respnm
 
 
 def inference_GMM(traindata,class_labels,n_classes,n_features,n_datapoints):
-    n_m = 8;
+    n_m = 2;
     n_dim = n_features;
     #respnm=np.random.rand((n_datapoints,n_m))
     respnm = gen_random_respnm(n_datapoints,n_m) ##NOT RANDOM
@@ -162,10 +163,17 @@ def inference_GMM(traindata,class_labels,n_classes,n_features,n_datapoints):
         data_ci = traindata[np.where((traindata[:,4]==class_labels[i]))];
         data_ci = data_ci[:,0:4];
         error = 9999999999999;
-        while(error>bound):
+        n=0
+        while(n<50):
+            print(str(error)+'\n')
+            print('loop '+str(n) + '\n')
+            n = n+1
             mu_matrix = gen_mu_vector_matrix_maxstep(data_ci,respnm,N_m,n_features,n_m,n_classes);
+            #print(mu_matrix)
             var_matrix = gen_var_matrix_matrix_maxstep(data_ci,mu_matrix,respnm,N_m,n_features,n_m,n_classes);
+            #print(var_matrix)
             w_m = gen_weight_array(N_m,n_datapoints);
+            #print(w_m)
             logl1 = log_likelihood((mu_matrix,var_matrix,w_m),data_ci,n_m,n_datapoints);
             error = np.abs(logl2-logl1);
             respnm = gen_respnm_expstep(data_ci,mu_matrix,var_matrix,w_m,n_features,n_datapoints,n_features,n_m);
