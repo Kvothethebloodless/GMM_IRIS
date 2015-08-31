@@ -40,61 +40,95 @@ def inference_prior(traindata):
     return np.array(prior_Cis)
     
 
-def decision_posterior(priors,Ci_params,datapoints,n_classes,n_datapoints):
+def decision_posterior(priors,Ci_params,datapoints,n_classes,n_datapoints,w,n_m):
     #Ci_params is a tuple with (class_labels,mu_array,var_matrix) as elements
     # Given n dimension data with I classes - size of Ci_params is 3 by 
     #given data point, calculate the posterior probabilities
     #and put it back with [Ci,posterior]
     #Return Ci with maximum posterior probability.
-    (class_labels,mu_array,var_matrix) = Ci_params;
+    (class_labels,mu_matrix,var_2matrix) = Ci_params;
+    #mu_matrix n_classes by m by n_dims matrix
+    #var_matrix n_classes by m by n_dims by n_dims matrix
     posterior_prob = np.zeros((n_classes,2));
     posterior_prob[:,0] = class_labels; #Writing classes
     decided_class=np.arange(n_datapoints);
     for j in range(n_datapoints):
         datapoint =datapoints[j];
         for i in range(n_classes):
-            posterior_prob[i,1] = norm_pdf_multivariate(datapoint,(mu_array[i],var_matrix[i])) * priors[i] ;
+            #posterior_prob[i,1] = norm_pdf_multivariate(datapoint,(mu_array[i],var_matrix[i])) * priors[i] ;
+            posterior_prob[i,1] = GMM_prob_class(datapoint,(mu_array[i],var_2matrix[i]),w,n_m);
         max_post_prob_loc = np.argmax(posterior_prob[:,1]);                                  
         max_post_class = posterior_prob[:,0][max_post_prob_loc]
         decided_class[j] = max_post_class;
     return decided_class
 
+def GMM_prob_class(x,params_class,w,n_gms): #prob = sum(wi*N(mu,sigma))
+    #mu_array 1 by m mu vectors
+    #var_array 1 by m var matrices
+    (mu_array,var_array) = params_class
+    sum = 0
+    for i in range(n_gms):
+        sum = sum+w[i]*norm_pdf_multivariate(x,[mu_array[i],var_array[i]]);
+    return sum
 
-def inference_GMM(traindata,n_classes,n_features,n_datapoints):
-    return
+        
+def gen_respnm_expstep(traindata,mu_vector,var_matrix,w,n_dims,n_datapoints,n_features,n_m):
+    respnm = np.zeros((n_datapoints,n_dims))
+    for i in range(1:n_datapoints):
+        datapoint = traindata[i][0:4];
+        p = GMM_prob_class(datapoint,(mu_vector,var_matrix),w,n_m);
+        for j in range(1:n_m):            
+            respnm[i,j] = w[j]*norm_pdf_multivariate(datapoint,[mu_vector[j],var_matrix[j]]) / p ;
+    return respnm
 
-
-def gen_mu_vector_maxstep(x,n_m,respm,n_dims,n_datapoints):
+def gen_mu_vector_maxstep(traindata,n_m,respm,n_dims,n_datapoints):
     #x_n matrix of datapoints
     #respkm_n vector of responsibilities of each of n points for m the gaussian of all datapoints
 
     mu_vector = np.arange(n_dims);
     for i in range(n_dims):
-        mu_vector[i]=np.sum(np.multiply(respm,x[:,i]));
+        mu_vector[i]=np.sum(np.multiply(respm,traindata[:,i]));
 
     mu_vector = mu_vector/n_m;
     return mu_vector
 
-
-def gen_var_matrix_maxstep(x,mu,n_m,respm,n_dims,n_datapoints): #m-dimensional data - x - n by d. mu 1 by d . Assuming dimensional independence
-    
+def gen_var_matrix_maxstep(traindata,mu,n_m,respm,n_dims,n_datapoints): #m-dimensional data - x - n by d. mu 1 by d . Assuming dimensional independence
     var_dim = np.arange(n_dims) #Vector to hold all the important self variances i.e cov(i,j)
     for j in range(n_dims):
-        var_dim[j] = np.sum(np.multiply(respm,np.power((x[:,j]-mu[j]),2)));
+        var_dim[j] = np.sum(np.multiply(respm,np.power((traindata[:,j]-mu[j]),2)));
     var_matrix = np.diag(var_dim);
     var_matrix = var_matrix/n_m;
     return var_matrix
 
-  
+def gen_N_m(respnm,n_datapoints,n_m):
+    N_m = np.zeros((1,m));
+    for m in range(n_m):
+        N_m[m] = np.sum(respnm[:,m]);
+    return N_m
+
+def loglikelihood_error(oldparams,traindata,newparams,n_m,n_datapoints):
+    l1 = log_likelihood(oldparams,traindata,n_m,n_datapoints);
+    l2 = log_likelihood(newparams,traindata,n_m,n_datapoints);
+    error = np.abs(l1-l2);
+    return error
+
+def log_likelihood(params,traindata,n_m,n_datapoints):
+    ll = 0;
+    (mu_vector,var_matrix,w) = params;
+    for i in range(n_datapoints):
+        s = s+log(GMM_prob_class(traindata[i],(mu_vector,var_matrix),w,n_m))
+    return 
+   
+        
+
+def inference_GMM(traindata,n_classes,n_features,n_datapoints):
+    n_m = 8;
+    respnm=np.ones((n_datapoints,n_m))
+    respnm = respnm*(1/n_m); ##NOT RANDOM
     
 
-def new_pi(n_k,n):
-    return
 
     
-def new_mu_k(n_k,respk):
-    return
-
 def calc_error(assigned_labels,orig_labels):
     correct = np.sum(assigned_labels == orig_labels);
     total = np.size(assigned_labels);
