@@ -46,7 +46,7 @@ def decision_posterior(priors,Ci_params,datapoints,n_classes,n_datapoints,w,n_m)
     #given data point, calculate the posterior probabilities
     #and put it back with [Ci,posterior]
     #Return Ci with maximum posterior probability.
-    (class_labels,mu_matrix,var_2matrix) = Ci_params;
+    (class_labels,mu_array,var_2matrix) = Ci_params;
     #mu_matrix n_classes by m by n_dims matrix
     #var_matrix n_classes by m by n_dims by n_dims matrix
     posterior_prob = np.zeros((n_classes,2));
@@ -56,7 +56,7 @@ def decision_posterior(priors,Ci_params,datapoints,n_classes,n_datapoints,w,n_m)
         datapoint =datapoints[j];
         for i in range(n_classes):
             #posterior_prob[i,1] = norm_pdf_multivariate(datapoint,(mu_array[i],var_matrix[i])) * priors[i] ;
-            posterior_prob[i,1] = GMM_prob_class(datapoint,(mu_array[i],var_2matrix[i]),w,n_m);
+            posterior_prob[i,1] = GMM_prob_class(datapoint,(mu_array[i],var_2matrix[i]),w[i],n_m);
         max_post_prob_loc = np.argmax(posterior_prob[:,1]);
         max_post_class = posterior_prob[:,0][max_post_prob_loc]
         decided_class[j] = max_post_class;
@@ -146,6 +146,7 @@ def gen_random_respnm(n_datapoints,n_m):
     return respnm
 
 
+
 def inference_GMM(traindata,class_labels,n_classes,n_features,n_datapoints):
     n_m = 2;
     n_dim = n_features;
@@ -158,16 +159,16 @@ def inference_GMM(traindata,class_labels,n_classes,n_features,n_datapoints):
     all_ci_mu_matrix  = np.zeros((n_classes,n_m,n_dim));
     all_ci_var_matrix = np.zeros((n_classes,n_m,n_dim,n_dim));
     all_ci_weight_matrix = np.zeros((n_classes,n_m))
-
     for i in range(n_classes):
         data_ci = traindata[np.where((traindata[:,4]==class_labels[i]))];
         data_ci = data_ci[:,0:4];
         error = 9999999999999;
         n=0
-        while(n<50):
-            print(str(error)+'\n')
-            print('loop '+str(n) + '\n')
-            n = n+1
+        logl=[];
+
+        logl2 = 0;
+        while(error>.0001):
+
             mu_matrix = gen_mu_vector_matrix_maxstep(data_ci,respnm,N_m,n_features,n_m,n_classes);
             #print(mu_matrix)
             var_matrix = gen_var_matrix_matrix_maxstep(data_ci,mu_matrix,respnm,N_m,n_features,n_m,n_classes);
@@ -178,10 +179,17 @@ def inference_GMM(traindata,class_labels,n_classes,n_features,n_datapoints):
             error = np.abs(logl2-logl1);
             respnm = gen_respnm_expstep(data_ci,mu_matrix,var_matrix,w_m,n_features,n_datapoints,n_features,n_m);
             N_m = gen_N_m(respnm,n_datapoints,n_m)
+            logl.append(logl1)
             logl2 = logl1;
         all_ci_mu_matrix[i]=mu_matrix;
         all_ci_var_matrix[i]=var_matrix;
         all_ci_weight_matrix[i]=w_m;
+        plt.figure()
+        plt.plot(logl)
+    logl = np.array(logl);
+
+
+    plt.show()
     return (all_ci_mu_matrix,all_ci_var_matrix,all_ci_weight_matrix)
 
 
@@ -213,11 +221,17 @@ if __name__ == "__main__":
     testdata_labels = testdata[:,4];
     testdata = testdata;
     all_class_labels = np.arange(3);
+    n_m = 2;
+    n_testpoints = 30;
 
     priors = inference_prior(traindata);
 
     class_params = inference_GMM(traindata,all_class_labels,n_classes,n_features,n_datapoints);
-    #assigned_labels = decision_posterior(priors,class_params,testdata[:,0:4],n_classes,n_datapoints);
+    (all_ci_mu_matrix,all_ci_var_matrix,all_ci_weight_matrix)=class_params;
+    class_params=(all_class_labels,all_ci_mu_matrix,all_ci_var_matrix);
 
 
-    #print(calc_error(assigned_labels,testdata_labels))
+    assigned_labels = decision_posterior(priors,class_params,testdata[:,0:4],n_classes,30,all_ci_weight_matrix,n_m);
+#def decision_posterior(priors,Ci_params,datapoints,n_classes,n_datapoints,w,n_m):
+
+    print(calc_error(assigned_labels,testdata_labels))
