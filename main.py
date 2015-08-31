@@ -117,7 +117,7 @@ def log_likelihood(params,traindata,n_m,n_datapoints):
     (mu_vector,var_matrix,w) = params;
     for i in range(n_datapoints):
         s = s+log(GMM_prob_class(traindata[i],(mu_vector,var_matrix),w,n_m))
-    return 
+    return s
    
         
 
